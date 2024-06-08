@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Recursos</title>
+    <style>
+        .container {
+            width: 80%;
+            margin: 0 auto;
+        }
+        canvas {
+            width: 100% !important;
+            height: 400px !important;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        async function obtenerDatos() {
+            const response = await fetch('monitor.php');
+            return await response.json();
+        }
+
+        function actualizarRecursos() {
+            obtenerDatos().then(data => {
+                actualizarGraficoCPU(data.cpu);
+                actualizarGraficoMemoria(data.memoria);
+                actualizarGraficoRed(data.red);
+                actualizarTablaDisco(data.disco);
+            });
+        }
+
+        function actualizarGraficoCPU(cpu) {
+            cpuChart.data.datasets[0].data.push(cpu);
+            if (cpuChart.data.datasets[0].data.length > 20) {
+                cpuChart.data.datasets[0].data.shift();
+            }
+            cpuChart.update();
+        }
+
+        function actualizarGraficoMemoria(memoria) {
+            memoriaChart.data.datasets[0].data = [memoria.usada, memoria.disponible];
+            memoriaChart.update();
+        }
+
+        function actualizarGraficoRed(red) {
+            const interfaces = Object.keys(red);
+            const rxData = interfaces.map(iface => red[iface].rx_bytes);
+            const txData = interfaces.map(iface => red[iface].tx_bytes);
+
+            redChart.data.labels = interfaces;
+            redChart.data.datasets[0].data = rxData;
+            redChart.data.datasets[1].data = txData;
+            redChart.update();
+        }
+
+        function actualizarTablaDisco(discos) {
+            let discoHtml = '';
+            discos.forEach(disco => {
+                discoHtml += `<tr>
+                    <td>${disco.filesystem}</td>
+                    <td>${disco.size}</td>
+                    <td>${disco.used}</td>
+                    <td>${disco.available}</td>
+                    <td>${disco['use%']}</td>
+                    <td>${disco.mounted_on}</td>
+                </tr>`;
+            });
+            document.getElementById('disco').innerHTML = discoHtml;
+        }
+
+        let cpuChart, memoriaChart, redChart;
+
+        window.onload = function() {
+            const ctxCPU = document.getElementById('cpuChart').getContext('2d');
+            cpuChart = new Chart(ctxCPU, {
+                type: 'line',
+                data: {
+                    labels: Array.from({length: 20}, (_, i) => i + 1),
+                    datasets: [{
+                        label: 'Uso de CPU (%)',
+                        data: [],
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        borderWidth: 1,
+                        fill: false
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            display: false
+                        },
+                        y: {
+                            beginAtZero: true,
+                            max: 100
+                        }
+                    }
+                }
+            });
+
+            const ctxMemoria = document.getElementById('memoriaChart').getContext('2d');
+            memoriaChart = new Chart(ctxMemoria, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Usada', 'Disponible'],
+                    datasets: [{
+                        label: 'Uso de Memoria (KB)',
+                        data: [],
+                        backgroundColor: ['rgba(255, 99, 132, 0.2)', 'rgba(54, 162, 235, 0.2)'],
+                        borderColor: ['rgba(255, 99, 132, 1)', 'rgba(54, 162, 235, 1)'],
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+
+            const ctxRed = document.getElementById('redChart').getContext('2d');
+            redChart = new Chart(ctxRed, {
+                type: 'bar',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Bytes Recibidos',
+                        data: [],
+                        backgroundColor: 'rgba(153, 102, 255, 0.2)',
+                        borderColor: 'rgba(153, 102, 255, 1)',
+                        borderWidth: 1
+                    }, {
+                        label: 'Bytes Enviados',
+                        data: [],
+                        backgroundColor: 'rgba(255, 159, 64, 0.2)',
+                        borderColor: 'rgba(255, 159, 64, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            setInterval(actualizarRecursos, 5000);
+            actualizarRecursos();
+        }
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Monitor de Recursos del Sistema</h1>
+        <h2>CPU</h2>
+        <canvas id="cpuChart"></canvas>
+        <h2>Memoria</h2>
+        <canvas id="memoriaChart"></canvas>
+        <h2>Red</h2>
+        <canvas id="redChart"></canvas>
+        <h2>Disco</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Filesystem</th>
+                    <th>Size</th>
+                    <th>Used</th>
+                    <th>Available</th>
+                    <th>Use%</th>
+                    <th>Mounted on</th>
+                </tr>
+            </thead>
+            <tbody id="disco">
+                <tr>
+                    <td colspan="6">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>

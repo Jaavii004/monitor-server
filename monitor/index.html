@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Monitor de Recursos</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            border: 1px solid #ddd;
+        }
+        th {
+            background-color: #f4f4f4;
+        }
+        .container {
+            width: 80%;
+            margin: 0 auto;
+        }
+    </style>
+    <script>
+        function actualizarRecursos() {
+            fetch('monitor.php')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('cpu').innerText = data.cpu.toFixed(2) + '%';
+                    document.getElementById('memoria').innerText = data.memoria.usada + ' KB / ' + data.memoria.total + ' KB (' + ((data.memoria.usada / data.memoria.total) * 100).toFixed(2) + '%)';
+                    let discoHtml = '';
+                    data.disco.forEach(disco => {
+                        discoHtml += `<tr>
+                            <td>${disco.filesystem}</td>
+                            <td>${disco.size}</td>
+                            <td>${disco.used}</td>
+                            <td>${disco.available}</td>
+                            <td>${disco['use%']}</td>
+                            <td>${disco.mounted_on}</td>
+                        </tr>`;
+                    });
+                    document.getElementById('disco').innerHTML = discoHtml;
+                });
+        }
+
+        setInterval(actualizarRecursos, 20);
+        window.onload = actualizarRecursos;
+    </script>
+</head>
+<body>
+    <div class="container">
+        <h1>Monitor de Recursos del Sistema</h1>
+        <h2>CPU</h2>
+        <p>Uso de CPU: <span id="cpu">Cargando...</span></p>
+        <h2>Memoria</h2>
+        <p>Uso de Memoria: <span id="memoria">Cargando...</span></p>
+        <h2>Disco</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Filesystem</th>
+                    <th>Size</th>
+                    <th>Used</th>
+                    <th>Available</th>
+                    <th>Use%</th>
+                    <th>Mounted on</th>
+                </tr>
+            </thead>
+            <tbody id="disco">
+                <tr>
+                    <td colspan="6">Cargando...</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</body>
+</html>
